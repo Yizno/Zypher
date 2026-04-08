@@ -101,9 +101,27 @@ function registerWindowStateEvents(window: BrowserWindow): void {
     syncWindowState();
   });
   window.webContents.on("before-input-event", (event, input) => {
-    if (input.type === "keyDown" && input.key === "F11" && !input.isAutoRepeat) {
+    if (input.type !== "keyDown" || input.isAutoRepeat) {
+      return;
+    }
+
+    if (input.key === "F11") {
       event.preventDefault();
       toggleWindowFullScreen(window);
+      return;
+    }
+
+    if (input.control && !input.alt && !input.meta) {
+      if (input.key === "=" || input.key === "+") {
+        event.preventDefault();
+        window.webContents.setZoomLevel(window.webContents.getZoomLevel() + 0.5);
+      } else if (input.key === "-") {
+        event.preventDefault();
+        window.webContents.setZoomLevel(window.webContents.getZoomLevel() - 0.5);
+      } else if (input.key === "0") {
+        event.preventDefault();
+        window.webContents.setZoomLevel(0);
+      }
     }
   });
 }
