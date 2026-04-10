@@ -681,59 +681,369 @@ mark {
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* ── History ── */
+/* ── Version History Panel (side panel) ── */
 
-.history-panel {
-  border-bottom: 1px solid var(--_border-subtle);
-  background: rgba(255, 255, 255, 0.02);
-  padding: 10px 14px;
-  display: grid;
-  gap: 8px;
+.active-toggle-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-.history-panel-header {
+.editor-with-history {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: var(--text-secondary);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.history-empty { font-size: 12px; color: var(--text-secondary); opacity: 0.7; }
-
-.history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.editor-main-area {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 180px;
-  overflow: auto;
+  min-height: 0;
 }
 
-.history-list li {
+.vh-preview-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  padding: 6px 14px;
   font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 20%, transparent);
 }
 
-.history-item-actions { display: flex; gap: 4px; }
-
-.history-item-actions button {
+.vh-preview-banner button {
   border: none;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 7px;
-  height: 26px;
-  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
   cursor: pointer;
-  font-size: 12px;
+  color: inherit;
   transition: background var(--_fast);
 }
 
-.history-item-actions button:hover { background: rgba(255, 255, 255, 0.1); }
+.vh-preview-banner button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.vh-panel {
+  width: 280px;
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--_border-subtle);
+  background: var(--sidebar-bg);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vh-header {
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--_border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vh-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vh-header-top strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vh-close-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--_fast), color var(--_fast);
+}
+
+.vh-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.vh-header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.vh-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.vh-filter-group select {
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  height: 24px;
+  font-size: 11px;
+  cursor: pointer;
+  color: inherit;
+  transition: background var(--_fast);
+}
+
+.vh-filter-group select:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.vh-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--accent-color) 10%, transparent);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--accent-color);
+}
+
+.vh-selection-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.vh-selection-actions button {
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  color: inherit;
+  transition: background var(--_fast);
+}
+
+.vh-selection-actions button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.vh-selection-actions .danger-btn {
+  color: #f09f9f;
+}
+
+.vh-list-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.vh-empty {
+  padding: 20px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  text-align: center;
+}
+
+.vh-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vh-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background var(--_fast);
+  cursor: default;
+  position: relative;
+}
+
+.vh-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.vh-item-active {
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 25%, transparent);
+}
+
+.vh-item-selected {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.vh-item-checkbox {
+  flex: 0 0 auto;
+}
+
+.vh-item-checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+.vh-item-content {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.vh-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vh-item-date {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.vh-rename-input {
+  border: 1px solid color-mix(in srgb, var(--accent-color) 40%, transparent);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  font-size: 12px;
+  width: 100%;
+  color: inherit;
+  outline: none;
+}
+
+.vh-rename-input:focus {
+  border-color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vh-item-menu-anchor {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.vh-dots-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--_fast), background var(--_fast);
+}
+
+.vh-item:hover .vh-dots-btn,
+.vh-dots-btn:focus {
+  opacity: 1;
+}
+
+.vh-dots-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+/* Context menu */
+.vh-context-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 100;
+  background: var(--_deep-bg);
+  border: 1px solid var(--_border-subtle);
+  border-radius: 10px;
+  padding: 4px;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.vh-context-menu button {
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background var(--_fast);
+  white-space: nowrap;
+}
+
+.vh-context-menu button:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.vh-context-menu button svg {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+
+.vh-menu-divider {
+  height: 1px;
+  background: var(--_border-subtle);
+  margin: 2px 6px;
+}
+
+.vh-menu-danger {
+  color: #f09f9f !important;
+}
+
+.vh-menu-danger svg {
+  color: #f09f9f !important;
+}
+
+.vh-footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--_border-subtle);
+  display: flex;
+  justify-content: center;
+}
+
+.vh-footer .danger-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--_fast);
+}
+
+.vh-footer .danger-btn:hover {
+  background: rgba(240, 159, 159, 0.12);
+}
 
 /* ═══════════════════════════
    RICH EDITOR & TOOLBAR
@@ -1090,7 +1400,7 @@ mark {
   caret-color: var(--accent-color);
 }
 
-.editor-content.disabled { opacity: 0.5; pointer-events: none; }
+.editor-content.disabled { opacity: 0.5; user-select: none; }
 
 .editor-content p, .editor-content li, .editor-content td, .editor-content th {
   line-height: inherit;

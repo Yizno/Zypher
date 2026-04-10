@@ -34,8 +34,12 @@ const IPC_CHANNELS = {
   JOURNAL_LOCK: "journal:lock",
   JOURNAL_RESET_ENCRYPTED_DATA: "journal:reset-encrypted-data",
   JOURNAL_LIST_PAGE_HISTORY: "journal:list-page-history",
+  JOURNAL_GET_PAGE_HISTORY_CONTENT: "journal:get-page-history-content",
   JOURNAL_RESTORE_PAGE_HISTORY: "journal:restore-page-history",
+  JOURNAL_RENAME_PAGE_HISTORY: "journal:rename-page-history",
+  JOURNAL_DUPLICATE_FROM_HISTORY: "journal:duplicate-from-history",
   JOURNAL_DELETE_PAGE_HISTORY: "journal:delete-page-history",
+  JOURNAL_DELETE_MULTIPLE_PAGE_HISTORY: "journal:delete-multiple-page-history",
   JOURNAL_CLEAR_PAGE_HISTORY: "journal:clear-page-history",
   JOURNAL_CLEAR_ALL_HISTORY: "journal:clear-all-history",
   JOURNAL_CREATE_BACKUP: "journal:create-backup",
@@ -92,10 +96,18 @@ const journalAppApi: JournalAppApi = {
     lock: () => ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_LOCK),
     resetEncryptedData: () => ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_RESET_ENCRYPTED_DATA),
     listPageHistory: (pageId: string) => ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_LIST_PAGE_HISTORY, pageId),
+    getPageHistoryContent: (pageId: string, historyId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_GET_PAGE_HISTORY_CONTENT, pageId, historyId),
     restorePageHistory: (pageId: string, historyId: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_RESTORE_PAGE_HISTORY, pageId, historyId),
+    renamePageHistory: (pageId: string, historyId: string, name: string | null) =>
+      ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_RENAME_PAGE_HISTORY, pageId, historyId, name),
+    duplicateFromHistory: (pageId: string, historyId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_DUPLICATE_FROM_HISTORY, pageId, historyId),
     deletePageHistory: (pageId: string, historyId: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_DELETE_PAGE_HISTORY, pageId, historyId),
+    deleteMultiplePageHistory: (pageId: string, historyIds: string[]) =>
+      ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_DELETE_MULTIPLE_PAGE_HISTORY, pageId, historyIds),
     clearPageHistory: (pageId: string) => ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_CLEAR_PAGE_HISTORY, pageId),
     clearAllHistory: () => ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_CLEAR_ALL_HISTORY),
     createBackup: () => ipcRenderer.invoke(IPC_CHANNELS.JOURNAL_CREATE_BACKUP),

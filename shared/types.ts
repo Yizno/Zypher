@@ -121,6 +121,12 @@ export interface MemoryReplayItem {
 export interface PageHistoryItem {
   id: string;
   createdAt: string;
+  name: string | null;
+}
+
+export interface PageHistoryContent {
+  id: string;
+  content: string;
 }
 
 export interface BackupItem {

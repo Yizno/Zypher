@@ -276,11 +276,23 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.JOURNAL_LOCK, async () => store.lock());
   ipcMain.handle(IPC_CHANNELS.JOURNAL_RESET_ENCRYPTED_DATA, async () => store.resetEncryptedData());
   ipcMain.handle(IPC_CHANNELS.JOURNAL_LIST_PAGE_HISTORY, async (_event, pageId: string) => store.listPageHistory(pageId));
+  ipcMain.handle(IPC_CHANNELS.JOURNAL_GET_PAGE_HISTORY_CONTENT, async (_event, pageId: string, historyId: string) =>
+    store.getPageHistoryContent(pageId, historyId)
+  );
   ipcMain.handle(IPC_CHANNELS.JOURNAL_RESTORE_PAGE_HISTORY, async (_event, pageId: string, historyId: string) =>
     store.restorePageHistory(pageId, historyId)
   );
+  ipcMain.handle(IPC_CHANNELS.JOURNAL_RENAME_PAGE_HISTORY, async (_event, pageId: string, historyId: string, name: string | null) =>
+    store.renamePageHistory(pageId, historyId, name)
+  );
+  ipcMain.handle(IPC_CHANNELS.JOURNAL_DUPLICATE_FROM_HISTORY, async (_event, pageId: string, historyId: string) =>
+    store.duplicateFromHistory(pageId, historyId)
+  );
   ipcMain.handle(IPC_CHANNELS.JOURNAL_DELETE_PAGE_HISTORY, async (_event, pageId: string, historyId: string) =>
     store.deletePageHistory(pageId, historyId)
+  );
+  ipcMain.handle(IPC_CHANNELS.JOURNAL_DELETE_MULTIPLE_PAGE_HISTORY, async (_event, pageId: string, historyIds: string[]) =>
+    store.deleteMultiplePageHistory(pageId, historyIds)
   );
   ipcMain.handle(IPC_CHANNELS.JOURNAL_CLEAR_PAGE_HISTORY, async (_event, pageId: string) => store.clearPageHistory(pageId));
   ipcMain.handle(IPC_CHANNELS.JOURNAL_CLEAR_ALL_HISTORY, async () => store.clearAllHistory());

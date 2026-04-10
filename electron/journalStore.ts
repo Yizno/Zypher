@@ -37,6 +37,7 @@ import type {
   JournalPageMeta,
   JournalUpdateResult,
   MemoryReplayItem,
+  PageHistoryContent,
   PageHistoryItem,
   SearchFilters,
   SearchResult,
@@ -849,19 +850,102 @@ export class JournalStore {
     const directory = this.getHistoryPageDir(pageId);
     await fs.mkdir(directory, { recursive: true });
     const files = await fs.readdir(directory);
+    const names = await this.readHistoryNames(directory);
     const withStats = await Promise.all(
       files
-        .filter((name) => name.endsWith(".json"))
+        .filter((name) => name.endsWith(".json") && name !== "_names.json")
         .map(async (name) => {
           const filePath = path.join(directory, name);
           const stat = await fs.stat(filePath);
+          const id = name.replace(/\.json$/i, "");
           return {
-            id: name.replace(/\.json$/i, ""),
-            createdAt: stat.mtime.toISOString()
+            id,
+            createdAt: stat.mtime.toISOString(),
+            name: names[id] ?? null
           };
         })
     );
     return withStats.sort((left, right) => parseTimestamp(right.createdAt) - parseTimestamp(left.createdAt));
+  }
+
+  async getPageHistoryContent(pageId: string, historyId: string): Promise<PageHistoryContent> {
+    await this.ensureReady();
+    const historyPath = path.join(this.getHistoryPageDir(pageId), `${this.requireSafeHistoryId(historyId)}.json`);
+    const raw = await this.readJournalFile(historyPath);
+    const parsed = JSON.parse(raw) as StoredPageFile;
+    return { id: historyId, content: typeof parsed.content === "string" ? parsed.content : "" };
+  }
+
+  async renamePageHistory(pageId: string, historyId: string, name: string | null): Promise<void> {
+    await this.withWriteLock(async () => {
+      await this.ensureReady();
+      this.requireSafeHistoryId(historyId);
+      const directory = this.getHistoryPageDir(pageId);
+      const names = await this.readHistoryNames(directory);
+      if (name === null || name.trim().length === 0) {
+        delete names[historyId];
+      } else {
+        names[historyId] = name.trim();
+      }
+      await this.writeHistoryNames(directory, names);
+    });
+  }
+
+  async duplicateFromHistory(pageId: string, historyId: string): Promise<JournalPageMeta> {
+    return this.withWriteLock(async () => {
+      await this.ensureReady();
+      const historyPath = path.join(this.getHistoryPageDir(pageId), `${this.requireSafeHistoryId(historyId)}.json`);
+      const raw = await this.readJournalFile(historyPath);
+      const parsed = JSON.parse(raw) as StoredPageFile;
+      const content = typeof parsed.content === "string" ? parsed.content : "";
+
+      const index = await this.readIndex();
+      const sourceMeta = this.getMetaOrThrow(index, pageId);
+      const newId = randomUUID();
+      const now = new Date().toISOString();
+      const { charCount, wordCount, readingMinutes } = computeCounts(stripHtml(content));
+      const newMeta: JournalPageMeta = {
+        id: newId,
+        title: `${sourceMeta.title} (copy)`,
+        preview: derivePreview(content),
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+        pinned: false,
+        tags: [...sourceMeta.tags],
+        folderId: sourceMeta.folderId,
+        charCount,
+        wordCount,
+        readingMinutes
+      };
+      index.pages.unshift(newMeta);
+      await this.writePageFile(newId, content);
+      await this.writeIndex(index);
+      return newMeta;
+    });
+  }
+
+  async deleteMultiplePageHistory(pageId: string, historyIds: string[]): Promise<void> {
+    await this.withWriteLock(async () => {
+      await this.ensureReady();
+      const directory = this.getHistoryPageDir(pageId);
+      const names = await this.readHistoryNames(directory);
+      let namesChanged = false;
+      await Promise.all(
+        historyIds.map(async (historyId) => {
+          const safeId = this.requireSafeHistoryId(historyId);
+          const historyPath = path.join(directory, `${safeId}.json`);
+          await fs.rm(historyPath, { force: true });
+          if (names[historyId]) {
+            delete names[historyId];
+            namesChanged = true;
+          }
+        })
+      );
+      if (namesChanged) {
+        await this.writeHistoryNames(directory, names);
+      }
+    });
   }
 
   async restorePageHistory(pageId: string, historyId: string): Promise<JournalUpdateResult> {
@@ -886,8 +970,14 @@ export class JournalStore {
   async deletePageHistory(pageId: string, historyId: string): Promise<void> {
     await this.withWriteLock(async () => {
       await this.ensureReady();
-      const historyPath = path.join(this.getHistoryPageDir(pageId), `${this.requireSafeHistoryId(historyId)}.json`);
-      await fs.rm(historyPath, { force: true });
+      const directory = this.getHistoryPageDir(pageId);
+      const safeId = this.requireSafeHistoryId(historyId);
+      await fs.rm(path.join(directory, `${safeId}.json`), { force: true });
+      const names = await this.readHistoryNames(directory);
+      if (names[historyId]) {
+        delete names[historyId];
+        await this.writeHistoryNames(directory, names);
+      }
     });
   }
 
@@ -1574,6 +1664,24 @@ export class JournalStore {
     return path.join(this.historyDir, this.requireSafePageId(pageId));
   }
 
+  private async readHistoryNames(directory: string): Promise<Record<string, string>> {
+    try {
+      const raw = await fs.readFile(path.join(directory, "_names.json"), "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, string>;
+      }
+    } catch {
+      // file doesn't exist or is invalid
+    }
+    return {};
+  }
+
+  private async writeHistoryNames(directory: string, names: Record<string, string>): Promise<void> {
+    await fs.mkdir(directory, { recursive: true });
+    await fs.writeFile(path.join(directory, "_names.json"), JSON.stringify(names), "utf-8");
+  }
+
   private async readPageFile(pageId: string): Promise<string> {
     const jsonPath = this.getPagePath(pageId);
     try {
@@ -1647,7 +1755,7 @@ export class JournalStore {
     await this.writeJournalFile(filePath, JSON.stringify({ id: pageId, content }));
 
     const snapshots = (await fs.readdir(directory))
-      .filter((name) => name.endsWith(".json"))
+      .filter((name) => name.endsWith(".json") && name !== "_names.json")
       .sort((left, right) => right.localeCompare(left));
 
     if (snapshots.length > HISTORY_LIMIT_PER_PAGE) {

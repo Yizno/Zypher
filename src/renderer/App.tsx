@@ -28,6 +28,7 @@ import ResetDataDialog from "./components/ResetDataDialog";
 import SettingsPanel from "./components/SettingsPanel";
 import Sidebar from "./components/Sidebar";
 import TitleBar from "./components/TitleBar";
+import VersionHistoryPanel from "./components/VersionHistoryPanel";
 import ZipKeyDialog from "./components/ZipKeyDialog";
 import { syncImportedFontFaces } from "./utils/importedFonts";
 import { selectAllInputText } from "./utils/inputSelection";
@@ -101,8 +102,12 @@ const fallbackApi: JournalAppApi = {
     lock: () => rejectBridge(),
     resetEncryptedData: () => rejectBridge(),
     listPageHistory: () => rejectBridge(),
+    getPageHistoryContent: () => rejectBridge(),
     restorePageHistory: () => rejectBridge(),
+    renamePageHistory: () => rejectBridge(),
+    duplicateFromHistory: () => rejectBridge(),
     deletePageHistory: () => rejectBridge(),
+    deleteMultiplePageHistory: () => rejectBridge(),
     clearPageHistory: () => rejectBridge(),
     clearAllHistory: () => rejectBridge(),
     createBackup: () => rejectBridge(),
@@ -247,6 +252,8 @@ export default function App(): JSX.Element {
   const [tagsInput, setTagsInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [historyPreviewId, setHistoryPreviewId] = useState<string | null>(null);
+  const [historyPreviewContent, setHistoryPreviewContent] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogRequest | null>(null);
   const [folderNameDialog, setFolderNameDialog] = useState<FolderNameDialogRequest | null>(null);
   const [resetDataDialogOpen, setResetDataDialogOpen] = useState(false);
@@ -1492,6 +1499,8 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     setHistoryPanelOpen(false);
+    setHistoryPreviewId(null);
+    setHistoryPreviewContent(null);
   }, [activePage?.id]);
 
   const commitActiveTitle = useCallback(async () => {
@@ -1508,61 +1517,124 @@ export default function App(): JSX.Element {
     await handleRenamePage(activePage.id, nextTitle);
   }, [activePage, handleRenamePage, titleInput]);
 
-  const handleRestoreHistoryItem = useCallback(
+  const handlePreviewHistoryItem = useCallback(
     async (historyId: string) => {
-      if (!activePage) {
+      if (!activePage) return;
+      if (historyPreviewId === historyId) {
+        setHistoryPreviewId(null);
+        setHistoryPreviewContent(null);
         return;
       }
+      const result = await api.journal.getPageHistoryContent(activePage.id, historyId);
+      setHistoryPreviewId(historyId);
+      setHistoryPreviewContent(result.content);
+    },
+    [activePage, api, historyPreviewId]
+  );
+
+  const handleRestoreHistoryItem = useCallback(
+    async (historyId: string) => {
+      if (!activePage) return;
+
+      const confirmed = await requestConfirm({
+        title: "Restore this version?",
+        message: "The current page content will be replaced with this version. A snapshot of the current content will be saved first.",
+        confirmLabel: "Restore",
+        danger: false
+      });
+      if (!confirmed) return;
 
       await api.journal.restorePageHistory(activePage.id, historyId);
       await openPage(activePage.id);
       await refreshPages();
       await refreshActivePageHistory();
-      setInfoMessage("History snapshot restored.");
+      setHistoryPreviewId(null);
+      setHistoryPreviewContent(null);
+      setInfoMessage("Version restored.");
     },
-    [activePage, api, openPage, refreshActivePageHistory, refreshPages]
+    [activePage, api, openPage, refreshActivePageHistory, refreshPages, requestConfirm]
   );
 
   const handleDeleteHistoryItem = useCallback(
     async (historyId: string) => {
-      if (!activePage) {
-        return;
-      }
+      if (!activePage) return;
 
       const confirmed = await requestConfirm({
-        title: "Delete history snapshot?",
-        message: "This snapshot will be removed permanently.",
-        confirmLabel: "Delete Snapshot",
+        title: "Delete version?",
+        message: "This version will be removed permanently.",
+        confirmLabel: "Delete",
         danger: true
       });
-      if (!confirmed) {
-        return;
-      }
+      if (!confirmed) return;
 
       await api.journal.deletePageHistory(activePage.id, historyId);
+      if (historyPreviewId === historyId) {
+        setHistoryPreviewId(null);
+        setHistoryPreviewContent(null);
+      }
       await refreshActivePageHistory();
     },
-    [activePage, api, refreshActivePageHistory, requestConfirm]
+    [activePage, api, historyPreviewId, refreshActivePageHistory, requestConfirm]
+  );
+
+  const handleDeleteMultipleHistoryItems = useCallback(
+    async (historyIds: string[]) => {
+      if (!activePage || historyIds.length === 0) return;
+
+      const confirmed = await requestConfirm({
+        title: `Delete ${historyIds.length} version${historyIds.length > 1 ? "s" : ""}?`,
+        message: "These versions will be removed permanently.",
+        confirmLabel: "Delete",
+        danger: true
+      });
+      if (!confirmed) return;
+
+      await api.journal.deleteMultiplePageHistory(activePage.id, historyIds);
+      if (historyPreviewId && historyIds.includes(historyPreviewId)) {
+        setHistoryPreviewId(null);
+        setHistoryPreviewContent(null);
+      }
+      await refreshActivePageHistory();
+    },
+    [activePage, api, historyPreviewId, refreshActivePageHistory, requestConfirm]
+  );
+
+  const handleRenameHistoryItem = useCallback(
+    async (historyId: string, name: string | null) => {
+      if (!activePage) return;
+      await api.journal.renamePageHistory(activePage.id, historyId, name);
+      await refreshActivePageHistory();
+    },
+    [activePage, api, refreshActivePageHistory]
+  );
+
+  const handleDuplicateFromHistory = useCallback(
+    async (historyId: string) => {
+      if (!activePage) return;
+      const newPage = await api.journal.duplicateFromHistory(activePage.id, historyId);
+      await refreshPages();
+      await openPage(newPage.id);
+      setInfoMessage("Copy created from version.");
+    },
+    [activePage, api, openPage, refreshPages]
   );
 
   const handleClearHistory = useCallback(async () => {
-    if (!activePage) {
-      return;
-    }
+    if (!activePage) return;
 
     const confirmed = await requestConfirm({
-      title: "Clear page history?",
-      message: "All saved snapshots for this page will be deleted.",
+      title: "Clear all version history?",
+      message: "All saved versions for this page will be deleted permanently.",
       confirmLabel: "Clear History",
       danger: true
     });
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     await api.journal.clearPageHistory(activePage.id);
     await refreshActivePageHistory();
-    setInfoMessage("Page history cleared.");
+    setHistoryPreviewId(null);
+    setHistoryPreviewContent(null);
+    setInfoMessage("Version history cleared.");
   }, [activePage, api, refreshActivePageHistory, requestConfirm]);
 
   return (
@@ -1771,82 +1843,83 @@ export default function App(): JSX.Element {
                   />
                   <button
                     type="button"
+                    className={historyPanelOpen ? "active-toggle-btn" : undefined}
                     title={settings.historySnapshotsEnabled ? undefined : "History saving is off. Existing snapshots, if any, are still shown here."}
                     onClick={() => {
-                      setHistoryPanelOpen((current) => !current);
+                      const nextOpen = !historyPanelOpen;
+                      setHistoryPanelOpen(nextOpen);
+                      if (!nextOpen) {
+                        setHistoryPreviewId(null);
+                        setHistoryPreviewContent(null);
+                      }
                     }}
                   >
                     {settings.historySnapshotsEnabled ? `History (${historyItems.length})` : `History Off (${historyItems.length})`}
                   </button>
-                  {historyPanelOpen ? (
-                    <button
-                      type="button"
-                      className="danger-btn"
-                      onClick={() => {
-                        void handleClearHistory().catch((error) => setErrorMessage(toErrorMessage(error)));
-                      }}
-                    >
-                      Clear history
-                    </button>
-                  ) : null}
                 </div>
               </div>
 
-              {historyPanelOpen ? (
-                <div className="history-panel">
-                  <div className="history-panel-header">
-                    <strong>Page History</strong>
-                    <span>{historyItems.length} snapshots</span>
-                  </div>
-                  {historyItems.length === 0 ? (
-                    <div className="history-empty">No snapshots yet.</div>
-                  ) : (
-                    <ul className="history-list">
-                      {historyItems.map((entry) => (
-                        <li key={entry.id}>
-                          <span>{new Date(entry.createdAt).toLocaleString()}</span>
-                          <div className="history-item-actions">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void handleRestoreHistoryItem(entry.id).catch((error) => setErrorMessage(toErrorMessage(error)));
-                              }}
-                            >
-                              Restore
-                            </button>
-                            <button
-                              type="button"
-                              className="danger-btn"
-                              onClick={() => {
-                                void handleDeleteHistoryItem(entry.id).catch((error) => setErrorMessage(toErrorMessage(error)));
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+              <div className="editor-with-history">
+                <div className="editor-main-area">
+                  {historyPreviewContent !== null && (
+                    <div className="vh-preview-banner">
+                      Previewing version — read only
+                      <button type="button" onClick={() => { setHistoryPreviewId(null); setHistoryPreviewContent(null); }}>
+                        Exit preview
+                      </button>
+                    </div>
                   )}
+                  <Editor
+                    value={historyPreviewContent ?? content}
+                    disabled={historyPreviewContent !== null || !activePageId}
+                    settings={settings}
+                    findRequestToken={editorFindRequestToken}
+                    onChange={handleEditorChange}
+                  />
+                  <div className="editor-stats">
+                    <span>
+                      {activePage.wordCount} words, {activePage.charCount} characters, {activePage.readingMinutes} min read
+                    </span>
+                    <span>
+                      Updated {new Date(activePage.updatedAt).toLocaleString()} | History:{" "}
+                      {settings.historySnapshotsEnabled ? historyItems.length : `${historyItems.length} (saving off)`}
+                    </span>
+                  </div>
                 </div>
-              ) : null}
 
-              <Editor
-                value={content}
-                disabled={!activePageId}
-                settings={settings}
-                findRequestToken={editorFindRequestToken}
-                onChange={handleEditorChange}
-              />
-
-              <div className="editor-stats">
-                <span>
-                  {activePage.wordCount} words, {activePage.charCount} characters, {activePage.readingMinutes} min read
-                </span>
-                <span>
-                  Updated {new Date(activePage.updatedAt).toLocaleString()} | History:{" "}
-                  {settings.historySnapshotsEnabled ? historyItems.length : `${historyItems.length} (saving off)`}
-                </span>
+                {historyPanelOpen && (
+                  <VersionHistoryPanel
+                    items={historyItems}
+                    historyEnabled={settings.historySnapshotsEnabled}
+                    previewingId={historyPreviewId}
+                    onPreview={(id) => {
+                      void handlePreviewHistoryItem(id).catch((error) => setErrorMessage(toErrorMessage(error)));
+                    }}
+                    onRestore={(id) => {
+                      void handleRestoreHistoryItem(id).catch((error) => setErrorMessage(toErrorMessage(error)));
+                    }}
+                    onDelete={(id) => {
+                      void handleDeleteHistoryItem(id).catch((error) => setErrorMessage(toErrorMessage(error)));
+                    }}
+                    onDeleteMultiple={(ids) => {
+                      void handleDeleteMultipleHistoryItems(ids).catch((error) => setErrorMessage(toErrorMessage(error)));
+                    }}
+                    onRename={(id, name) => {
+                      void handleRenameHistoryItem(id, name).catch((error) => setErrorMessage(toErrorMessage(error)));
+                    }}
+                    onDuplicate={(id) => {
+                      void handleDuplicateFromHistory(id).catch((error) => setErrorMessage(toErrorMessage(error)));
+                    }}
+                    onClear={() => {
+                      void handleClearHistory().catch((error) => setErrorMessage(toErrorMessage(error)));
+                    }}
+                    onClose={() => {
+                      setHistoryPanelOpen(false);
+                      setHistoryPreviewId(null);
+                      setHistoryPreviewContent(null);
+                    }}
+                  />
+                )}
               </div>
             </>
           ) : (

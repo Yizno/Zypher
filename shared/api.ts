@@ -9,6 +9,7 @@ import type {
   JournalPageMeta,
   JournalUpdateResult,
   MemoryReplayItem,
+  PageHistoryContent,
   PageHistoryItem,
   SearchFilters,
   SearchResult,
@@ -49,8 +50,12 @@ export interface JournalApi {
   lock: () => Promise<SecurityState>;
   resetEncryptedData: () => Promise<void>;
   listPageHistory: (pageId: string) => Promise<PageHistoryItem[]>;
+  getPageHistoryContent: (pageId: string, historyId: string) => Promise<PageHistoryContent>;
   restorePageHistory: (pageId: string, historyId: string) => Promise<JournalUpdateResult>;
+  renamePageHistory: (pageId: string, historyId: string, name: string | null) => Promise<void>;
+  duplicateFromHistory: (pageId: string, historyId: string) => Promise<JournalPageMeta>;
   deletePageHistory: (pageId: string, historyId: string) => Promise<void>;
+  deleteMultiplePageHistory: (pageId: string, historyIds: string[]) => Promise<void>;
   clearPageHistory: (pageId: string) => Promise<void>;
   clearAllHistory: () => Promise<void>;
   createBackup: () => Promise<BackupItem>;
